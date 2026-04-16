@@ -1,0 +1,82 @@
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+backend/venv311/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Build / Runtime Artifacts
+# =========================
+dist/
+build/
+*.log
+logs/
+tmp/
+temp/
+
+# Backend runtime outputs
+backend/data/uploads/
+backend/data/reports/
+backend/data/models/
+backend/condaenv.*.requirements.txt
+
+# =========================
+# Database / Cache
+# =========================
+*.sqlite
+*.sqlite3
+*.db
+*.doc
+# =========================
+# Project-specific temp files
+# =========================
+docs/
+.claude/
+文献/
+data/
+design-system/

@@ -1,0 +1,9 @@
+-r requirements.txt
+
+# Async Task Queue (Optional)
+celery>=5.3.0,<6.0.0
+redis>=5.0.0,<6.0.0
+
+# PDF Generation (Optional)
+reportlab>=4.0.0,<5.0.0
+weasyprint>=60.0,<67.0

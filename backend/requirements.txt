@@ -1,0 +1,20 @@
+# Flask Core
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-JWT-Extended==4.6.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+
+# Database
+PyMySQL==1.1.0
+SQLAlchemy>=2.0.38,<2.1.0
+
+# NLP (Runtime Core)
+# 深度学习与训练依赖拆分到 requirements-ml.txt
+jieba==0.42.1
+
+# Utilities
+python-dotenv==1.0.0
+Werkzeug==3.0.1
+click==8.1.7
+reportlab==4.4.10
