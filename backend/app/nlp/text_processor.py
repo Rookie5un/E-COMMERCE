@@ -1,5 +1,9 @@
 import re
 import jieba
+import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class TextProcessor:
@@ -46,7 +50,24 @@ class TextProcessor:
 
     def _load_stopwords(self):
         """加载停用词表"""
-        # 基础停用词列表
+        stopwords = set()
+
+        # 尝试从文件加载
+        stopwords_file = Path(__file__).parent.parent.parent / 'data' / 'stopwords.txt'
+
+        if stopwords_file.exists():
+            try:
+                with open(stopwords_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        word = line.strip()
+                        if word:
+                            stopwords.add(word)
+                logger.info(f'从文件加载停用词: {len(stopwords)} 个')
+                return stopwords
+            except Exception as e:
+                logger.warning(f'加载停用词文件失败: {e}，使用默认停用词表')
+
+        # 回退到基础停用词列表
         stopwords = {
             '的', '了', '在', '是', '我', '有', '和', '就', '不', '人',
             '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去',
@@ -54,12 +75,6 @@ class TextProcessor:
             '们', '中', '来', '为', '能', '对', '生', '和', '与', '及',
             '以', '而', '或', '等', '但', '却', '因', '由', '于', '从'
         }
-
-        # TODO: 从文件加载更完整的停用词表
-        # try:
-        #     with open('stopwords.txt', 'r', encoding='utf-8') as f:
-        #         stopwords.update(line.strip() for line in f)
-        # except:
-        #     pass
+        logger.info(f'使用默认停用词表: {len(stopwords)} 个')
 
         return stopwords
