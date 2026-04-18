@@ -102,6 +102,89 @@ class ReviewService:
             db.session.commit()
             raise
 
+    def import_from_list(self, reviews, batch_id, product_id):
+        """从列表导入手动输入的评论"""
+        batch = ReviewBatch.query.get(batch_id)
+        if not batch:
+            raise ValueError('批次不存在')
+
+        batch.status = 'processing'
+        db.session.commit()
+
+        imported_count = 0
+        duplicate_count = 0
+        failed_count = 0
+        row_count = len(reviews)
+
+        try:
+            for idx, raw_content in enumerate(reviews, 1):
+                try:
+                    if not raw_content or not raw_content.strip():
+                        failed_count += 1
+                        continue
+
+                    # 清洗文本
+                    cleaned_content = self.text_processor.clean_text(raw_content)
+
+                    # 计算哈希值用于去重
+                    content_hash = hashlib.sha256(cleaned_content.encode('utf-8')).hexdigest()
+
+                    # 检查是否重复
+                    existing = Review.query.filter_by(content_hash=content_hash).first()
+                    if existing:
+                        duplicate_count += 1
+                        continue
+
+                    # 创建评论记录
+                    review = Review(
+                        product_id=product_id,
+                        batch_id=batch_id,
+                        external_id=f'manual_{batch_id}_{idx}',
+                        raw_content=raw_content,
+                        cleaned_content=cleaned_content,
+                        content_hash=content_hash,
+                        rating=None,
+                        review_time=datetime.utcnow(),
+                        is_valid=True
+                    )
+
+                    db.session.add(review)
+                    imported_count += 1
+
+                    # 每100条提交一次
+                    if imported_count % 100 == 0:
+                        db.session.commit()
+
+                except Exception as e:
+                    print(f'处理第 {idx} 条评论失败: {str(e)}')
+                    failed_count += 1
+                    continue
+
+            # 最终提交
+            db.session.commit()
+
+            # 更新批次状态
+            batch.row_count = row_count
+            batch.imported_count = imported_count
+            batch.duplicate_count = duplicate_count
+            batch.failed_count = failed_count
+            batch.status = 'completed'
+            batch.finished_at = datetime.utcnow()
+            db.session.commit()
+
+            return {
+                'row_count': row_count,
+                'imported_count': imported_count,
+                'duplicate_count': duplicate_count,
+                'failed_count': failed_count
+            }
+
+        except Exception as e:
+            batch.status = 'failed'
+            batch.error_message = str(e)
+            db.session.commit()
+            raise
+
     def _parse_rating(self, rating_str):
         """解析评分"""
         if not rating_str:

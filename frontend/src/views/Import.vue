@@ -10,60 +10,108 @@
         <div class="surface-head">
           <div>
             <h3 class="surface-title">导入配置</h3>
-            <p class="surface-subtitle">选择商品后上传 CSV，系统将自动识别评论内容列。</p>
+            <p class="surface-subtitle">选择商品后上传 CSV 或手动输入评论内容。</p>
           </div>
         </div>
 
-        <el-form :model="form" label-width="98px" class="import-form">
-          <el-form-item label="选择商品" required>
-            <el-select
-              v-model="form.product_id"
-              placeholder="请选择商品"
-              class="product-select"
-            >
-              <el-option
-                v-for="product in products"
-                :key="product.id"
-                :label="product.name"
-                :value="product.id"
-              />
-            </el-select>
-          </el-form-item>
+        <el-tabs v-model="activeTab" class="import-tabs">
+          <el-tab-pane label="上传文件" name="file">
+            <el-form :model="form" label-width="98px" class="import-form">
+              <el-form-item label="选择商品" required>
+                <el-select
+                  v-model="form.product_id"
+                  placeholder="请选择商品"
+                  class="product-select"
+                >
+                  <el-option
+                    v-for="product in products"
+                    :key="product.id"
+                    :label="product.name"
+                    :value="product.id"
+                  />
+                </el-select>
+              </el-form-item>
 
-          <el-form-item label="上传文件" required>
-            <el-upload
-              ref="uploadRef"
-              :auto-upload="false"
-              :limit="1"
-              :on-change="handleFileChange"
-              :on-exceed="handleExceed"
-              accept=".csv"
-              drag
-              class="upload-area"
-            >
-              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-              <div class="el-upload__text">
-                将 CSV 文件拖到此处，或<em>点击上传</em>
-              </div>
-              <template #tip>
-                <div class="el-upload__tip">
-                  文件需包含 <code>content</code> 或 <code>评论内容</code> 列。
+              <el-form-item label="上传文件" required>
+                <el-upload
+                  ref="uploadRef"
+                  :auto-upload="false"
+                  :limit="1"
+                  :on-change="handleFileChange"
+                  :on-exceed="handleExceed"
+                  accept=".csv"
+                  drag
+                  class="upload-area"
+                >
+                  <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+                  <div class="el-upload__text">
+                    将 CSV 文件拖到此处，或<em>点击上传</em>
+                  </div>
+                  <template #tip>
+                    <div class="el-upload__tip">
+                      文件需包含 <code>content</code> 或 <code>评论内容</code> 列。
+                    </div>
+                  </template>
+                </el-upload>
+              </el-form-item>
+
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  :loading="uploading"
+                  :disabled="!form.product_id || !form.file"
+                  @click="handleUpload"
+                >
+                  开始导入
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+
+          <el-tab-pane label="手动输入" name="manual">
+            <el-form :model="manualForm" label-width="98px" class="import-form">
+              <el-form-item label="选择商品" required>
+                <el-select
+                  v-model="manualForm.product_id"
+                  placeholder="请选择商品"
+                  class="product-select"
+                >
+                  <el-option
+                    v-for="product in products"
+                    :key="product.id"
+                    :label="product.name"
+                    :value="product.id"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="评论内容" required>
+                <el-input
+                  v-model="manualForm.content"
+                  type="textarea"
+                  :rows="8"
+                  placeholder="请输入评论内容，支持多条评论，每行一条"
+                  class="manual-input"
+                />
+                <div class="input-tip">
+                  每行一条评论，系统将自动处理并分析情感倾向。
                 </div>
-              </template>
-            </el-upload>
-          </el-form-item>
+              </el-form-item>
 
-          <el-form-item>
-            <el-button
-              type="primary"
-              :loading="uploading"
-              :disabled="!form.product_id || !form.file"
-              @click="handleUpload"
-            >
-              开始导入
-            </el-button>
-          </el-form-item>
-        </el-form>
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  :loading="manualUploading"
+                  :disabled="!manualForm.product_id || !manualForm.content.trim()"
+                  @click="handleManualSubmit"
+                >
+                  提交分析
+                </el-button>
+                <el-button @click="handleClearManual">清空</el-button>
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
       </article>
 
       <article class="surface-panel import-summary">
@@ -188,10 +236,17 @@ const products = ref([])
 const batches = ref([])
 const loading = ref(false)
 const uploading = ref(false)
+const manualUploading = ref(false)
+const activeTab = ref('file')
 
 const form = reactive({
   product_id: null,
   file: null
+})
+
+const manualForm = reactive({
+  product_id: null,
+  content: ''
 })
 
 const pagination = reactive({
@@ -267,6 +322,51 @@ const handleUpload = async () => {
   }
 }
 
+const handleManualSubmit = async () => {
+  if (!manualForm.product_id) {
+    ElMessage.warning('请选择商品')
+    return
+  }
+  if (!manualForm.content.trim()) {
+    ElMessage.warning('请输入评论内容')
+    return
+  }
+
+  const reviews = manualForm.content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+
+  if (reviews.length === 0) {
+    ElMessage.warning('请输入有效的评论内容')
+    return
+  }
+
+  manualUploading.value = true
+  try {
+    const res = await importReviews({
+      product_id: manualForm.product_id,
+      reviews: reviews
+    })
+
+    ElMessage.success(`成功提交 ${reviews.length} 条评论`)
+    ElMessage.info(
+      `成功: ${res.result.imported_count}, 重复: ${res.result.duplicate_count}, 失败: ${res.result.failed_count}`
+    )
+
+    manualForm.content = ''
+    loadBatches()
+  } catch (error) {
+    ElMessage.error('提交失败')
+  } finally {
+    manualUploading.value = false
+  }
+}
+
+const handleClearManual = () => {
+  manualForm.content = ''
+}
+
 const getProductName = (productId) => {
   const product = products.value.find(item => item.id === productId)
   return product?.name || '-'
@@ -309,12 +409,26 @@ onMounted(() => {
   gap: 1px;
 }
 
+.import-tabs {
+  margin-top: 16px;
+}
+
 .product-select {
   width: min(420px, 100%);
 }
 
 .upload-area {
   width: 100%;
+}
+
+.manual-input {
+  width: 100%;
+}
+
+.input-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .summary-grid {

@@ -8,6 +8,7 @@ Flask-Migrate==4.0.5
 # Database
 PyMySQL==1.1.0
 SQLAlchemy>=2.0.38,<2.1.0
+cryptography==41.0.7
 
 # NLP (Runtime Core)
 # 深度学习与训练依赖拆分到 requirements-ml.txt

@@ -136,6 +136,17 @@ class Review(db.Model):
     aspect_mentions = db.relationship('AspectMention', back_populates='review', cascade='all, delete-orphan')
 
     def to_dict(self):
+        # 获取最新的情感分析结果
+        latest_sentiment = None
+        if self.sentiments:
+            # 按创建时间倒序，取最新的一条
+            sorted_sentiments = sorted(self.sentiments, key=lambda x: x.created_at, reverse=True)
+            if sorted_sentiments:
+                latest_sentiment = {
+                    'label': sorted_sentiments[0].label,
+                    'confidence': float(sorted_sentiments[0].confidence) if sorted_sentiments[0].confidence else None
+                }
+
         return {
             'id': self.id,
             'product_id': self.product_id,
@@ -146,5 +157,6 @@ class Review(db.Model):
             'rating': self.rating,
             'review_time': self.review_time.isoformat() if self.review_time else None,
             'is_valid': self.is_valid,
+            'sentiment': latest_sentiment,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

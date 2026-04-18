@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import Review, ReviewBatch, Product
+from app.models.analysis import ReviewSentiment
 from app.services.review_service import ReviewService
 from sqlalchemy import or_
 import os
@@ -13,61 +14,109 @@ bp = Blueprint('reviews', __name__)
 @bp.route('/import', methods=['POST'])
 @jwt_required()
 def import_reviews():
-    """导入评论CSV文件"""
+    """导入评论CSV文件或手动输入的评论"""
     try:
         current_user_id = int(get_jwt_identity())
     except (TypeError, ValueError):
         return jsonify({'error': '无效的身份令牌'}), 401
 
-    # 检查文件
-    if 'file' not in request.files:
-        return jsonify({'error': '未上传文件'}), 400
+    # 检查是文件上传还是手动输入
+    if 'file' in request.files:
+        # CSV文件上传模式
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': '文件名为空'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': '文件名为空'}), 400
+        # 获取商品ID
+        product_id = request.form.get('product_id', type=int)
+        if not product_id:
+            return jsonify({'error': '商品ID不能为空'}), 400
 
-    # 获取商品ID
-    product_id = request.form.get('product_id', type=int)
-    if not product_id:
-        return jsonify({'error': '商品ID不能为空'}), 400
+        # 验证商品存在
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': '商品不存在'}), 404
 
-    # 验证商品存在
-    product = Product.query.get(product_id)
-    if not product:
-        return jsonify({'error': '商品不存在'}), 404
+        # 保存文件
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
 
-    # 保存文件
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-
-    # 创建导入批次
-    batch = ReviewBatch(
-        product_id=product_id,
-        source_type='csv_import',
-        file_name=filename,
-        status='pending',
-        created_by=current_user_id
-    )
-    db.session.add(batch)
-    db.session.commit()
-
-    # 异步处理导入任务
-    try:
-        review_service = ReviewService()
-        result = review_service.import_from_csv(filepath, batch.id)
-
-        return jsonify({
-            'message': '导入成功',
-            'batch': batch.to_dict(),
-            'result': result
-        }), 200
-    except Exception as e:
-        batch.status = 'failed'
-        batch.error_message = str(e)
+        # 创建导入批次
+        batch = ReviewBatch(
+            product_id=product_id,
+            source_type='csv_import',
+            file_name=filename,
+            status='pending',
+            created_by=current_user_id
+        )
+        db.session.add(batch)
         db.session.commit()
-        return jsonify({'error': f'导入失败: {str(e)}'}), 500
+
+        # 异步处理导入任务
+        try:
+            review_service = ReviewService()
+            result = review_service.import_from_csv(filepath, batch.id)
+
+            return jsonify({
+                'message': '导入成功',
+                'batch': batch.to_dict(),
+                'result': result
+            }), 200
+        except Exception as e:
+            batch.status = 'failed'
+            batch.error_message = str(e)
+            db.session.commit()
+            return jsonify({'error': f'导入失败: {str(e)}'}), 500
+    else:
+        # 手动输入模式
+        data = request.get_json(silent=True) or {}
+        product_id = data.get('product_id')
+        reviews = data.get('reviews', [])
+
+        # 验证 product_id
+        if not product_id:
+            return jsonify({'error': '商品ID不能为空'}), 400
+
+        try:
+            product_id = int(product_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': '商品ID格式错误'}), 400
+
+        if not isinstance(reviews, list) or len(reviews) == 0:
+            return jsonify({'error': '评论列表不能为空'}), 400
+
+        # 验证商品存在
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': '商品不存在'}), 404
+
+        # 创建导入批次
+        batch = ReviewBatch(
+            product_id=product_id,
+            source_type='manual_input',
+            file_name=f'手动输入_{len(reviews)}条',
+            status='pending',
+            created_by=current_user_id
+        )
+        db.session.add(batch)
+        db.session.commit()
+
+        # 处理手动输入的评论
+        try:
+            review_service = ReviewService()
+            result = review_service.import_from_list(reviews, batch.id, product_id)
+
+            return jsonify({
+                'message': '导入成功',
+                'batch': batch.to_dict(),
+                'result': result
+            }), 200
+        except Exception as e:
+            batch.status = 'failed'
+            batch.error_message = str(e)
+            db.session.commit()
+            return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 
 @bp.route('/batches', methods=['GET'])
@@ -113,12 +162,16 @@ def get_reviews():
     product_id = request.args.get('product_id', type=int)
     batch_id = request.args.get('batch_id', type=int)
     status = request.args.get('status', 'valid')
+    sentiment = request.args.get('sentiment')
     keyword = (request.args.get('keyword') or '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
     if status not in {'valid', 'deleted', 'all'}:
         return jsonify({'error': 'status参数仅支持 valid / deleted / all'}), 400
+
+    if sentiment and sentiment not in {'positive', 'neutral', 'negative'}:
+        return jsonify({'error': 'sentiment参数仅支持 positive / neutral / negative'}), 400
 
     query = Review.query
 
@@ -131,6 +184,25 @@ def get_reviews():
         query = query.filter_by(product_id=product_id)
     if batch_id:
         query = query.filter_by(batch_id=batch_id)
+
+    # 按情感筛选
+    if sentiment:
+        # 使用子查询获取每个评论的最新情感分析结果
+        from sqlalchemy import func
+        subquery = db.session.query(
+            ReviewSentiment.review_id,
+            func.max(ReviewSentiment.created_at).label('max_created_at')
+        ).group_by(ReviewSentiment.review_id).subquery()
+
+        query = query.join(
+            ReviewSentiment,
+            Review.id == ReviewSentiment.review_id
+        ).join(
+            subquery,
+            (ReviewSentiment.review_id == subquery.c.review_id) &
+            (ReviewSentiment.created_at == subquery.c.max_created_at)
+        ).filter(ReviewSentiment.label == sentiment)
+
     if keyword:
         like_pattern = f'%{keyword}%'
         query = query.filter(

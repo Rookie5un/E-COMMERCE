@@ -39,6 +39,18 @@
           </el-select>
 
           <el-select
+            v-model="filters.sentiment"
+            placeholder="按情感筛选"
+            clearable
+            class="filter-select"
+            @change="handleSearch"
+          >
+            <el-option label="好评" value="positive" />
+            <el-option label="中评" value="neutral" />
+            <el-option label="差评" value="negative" />
+          </el-select>
+
+          <el-select
             v-model="filters.status"
             class="status-select"
             @change="handleSearch"
@@ -120,6 +132,15 @@
             </template>
           </el-table-column>
 
+          <el-table-column label="情感" width="100">
+            <template #default="{ row }">
+              <el-tag v-if="row.sentiment" :type="getSentimentType(row.sentiment.label)" size="small">
+                {{ getSentimentText(row.sentiment.label) }}
+              </el-tag>
+              <span v-else class="text-muted">未分析</span>
+            </template>
+          </el-table-column>
+
           <el-table-column label="状态" width="90">
             <template #default="{ row }">
               <el-tag :type="row.is_valid ? 'success' : 'info'">
@@ -187,6 +208,18 @@
           <el-descriptions-item label="批次">
             #{{ currentReview.batch_id }}
           </el-descriptions-item>
+          <el-descriptions-item label="情感分类">
+            <el-tag v-if="currentReview.sentiment" :type="getSentimentType(currentReview.sentiment.label)" size="small">
+              {{ getSentimentText(currentReview.sentiment.label) }}
+            </el-tag>
+            <span v-else>未分析</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="置信度">
+            <span v-if="currentReview.sentiment && currentReview.sentiment.confidence">
+              {{ (currentReview.sentiment.confidence * 100).toFixed(2) }}%
+            </span>
+            <span v-else>-</span>
+          </el-descriptions-item>
           <el-descriptions-item label="评分">
             {{ currentReview.rating || '-' }}
           </el-descriptions-item>
@@ -240,6 +273,7 @@ const tableScrollRef = ref(null)
 const filters = reactive({
   product_id: null,
   batch_id: null,
+  sentiment: null,
   status: 'valid',
   keyword: ''
 })
@@ -284,6 +318,7 @@ const loadReviews = async () => {
       per_page: pagination.per_page,
       product_id: filters.product_id || undefined,
       batch_id: filters.batch_id || undefined,
+      sentiment: filters.sentiment || undefined,
       status: filters.status,
       keyword: filters.keyword?.trim() || undefined
     }
@@ -316,6 +351,7 @@ const handleSearch = () => {
 const handleReset = async () => {
   filters.product_id = null
   filters.batch_id = null
+  filters.sentiment = null
   filters.status = 'valid'
   filters.keyword = ''
   pagination.page = 1
@@ -390,6 +426,24 @@ const getProductName = (productId) => {
   return product?.name || `商品#${productId}`
 }
 
+const getSentimentType = (label) => {
+  const map = {
+    positive: 'success',
+    neutral: 'warning',
+    negative: 'danger'
+  }
+  return map[label] || 'info'
+}
+
+const getSentimentText = (label) => {
+  const map = {
+    positive: '好评',
+    neutral: '中评',
+    negative: '差评'
+  }
+  return map[label] || label
+}
+
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('zh-CN')
@@ -424,17 +478,17 @@ onMounted(async () => {
 }
 
 .filter-select {
-  width: 180px;
+  width: 140px;
   flex: 0 0 auto;
 }
 
 .status-select {
-  width: 120px;
+  width: 100px;
   flex: 0 0 auto;
 }
 
 .keyword-input {
-  width: 320px;
+  width: 240px;
   flex: 0 0 auto;
 }
 
@@ -457,6 +511,11 @@ onMounted(async () => {
 
 .mono-num.small {
   font-size: 11px;
+}
+
+.text-muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .content-preview {
