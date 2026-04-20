@@ -1,18 +1,19 @@
 <template>
   <div class="page-container">
-    <div class="page-header page-block block-delay-1">
-      <h1 class="page-title">数据导入</h1>
-      <p class="page-description">上传评论 CSV 文件并跟踪批次处理结果。</p>
-    </div>
+    <!-- Page Header -->
+    <PageHeader
+      title="数据导入"
+      description="上传评论 CSV 文件并跟踪批次处理结果"
+    />
 
-    <section class="content-split-2 page-block block-delay-2">
-      <article class="form-surface">
-        <div class="surface-head">
-          <div>
-            <h3 class="surface-title">导入配置</h3>
-            <p class="surface-subtitle">选择商品后上传 CSV 或手动输入评论内容。</p>
+    <section class="content-split fade-in-delay-1">
+      <el-card class="form-card">
+        <template #header>
+          <div class="card-header card-header--stack">
+            <span class="card-title">导入配置</span>
+            <span class="card-subtitle">选择商品后上传 CSV 或手动输入评论内容</span>
           </div>
-        </div>
+        </template>
 
         <el-tabs v-model="activeTab" class="import-tabs">
           <el-tab-pane label="上传文件" name="file">
@@ -112,33 +113,33 @@
             </el-form>
           </el-tab-pane>
         </el-tabs>
-      </article>
+      </el-card>
 
-      <article class="surface-panel import-summary">
-        <div class="surface-head">
-          <div>
-            <h3 class="surface-title">导入状态</h3>
-            <p class="surface-subtitle">快速查看最近批次处理结果。</p>
+      <el-card class="summary-card">
+        <template #header>
+          <div class="card-header card-header--stack">
+            <span class="card-title">导入状态</span>
+            <span class="card-subtitle">快速查看最近批次处理结果</span>
           </div>
-        </div>
+        </template>
 
-        <div v-if="latestBatch" class="data-kpi-grid summary-grid">
-          <article class="data-kpi-item">
+        <div v-if="latestBatch" class="summary-grid">
+          <article class="data-kpi-item data-kpi-item--total">
             <p class="data-kpi-label">总行数</p>
             <p class="data-kpi-value">{{ latestBatch.row_count || 0 }}</p>
             <p class="data-kpi-note">最近一次导入</p>
           </article>
-          <article class="data-kpi-item">
+          <article class="data-kpi-item data-kpi-item--success">
             <p class="data-kpi-label">成功</p>
             <p class="data-kpi-value text-pos">{{ latestBatch.imported_count || 0 }}</p>
             <p class="data-kpi-note">有效入库评论</p>
           </article>
-          <article class="data-kpi-item">
+          <article class="data-kpi-item data-kpi-item--duplicate">
             <p class="data-kpi-label">重复</p>
             <p class="data-kpi-value text-neu">{{ latestBatch.duplicate_count || 0 }}</p>
             <p class="data-kpi-note">已存在数据</p>
           </article>
-          <article class="data-kpi-item">
+          <article class="data-kpi-item data-kpi-item--failed">
             <p class="data-kpi-label">失败</p>
             <p class="data-kpi-value text-neg">{{ latestBatch.failed_count || 0 }}</p>
             <p class="data-kpi-note">需排查数据格式</p>
@@ -148,20 +149,22 @@
         <div v-else class="empty-state">
           <p>暂无导入记录，先完成一次 CSV 导入。</p>
         </div>
-      </article>
+      </el-card>
     </section>
 
-    <section class="table-surface page-block block-delay-3">
-      <div class="surface-head">
-        <div>
-          <h3 class="surface-title">导入历史</h3>
-          <p class="surface-subtitle">记录每次批次的总行数、成功率与错误量。</p>
+    <el-card class="table-card fade-in-delay-2">
+      <template #header>
+        <div class="card-header">
+          <div>
+            <span class="card-title">导入历史</span>
+            <span class="card-subtitle">记录每次批次的总行数、成功率与错误量</span>
+          </div>
+          <el-button @click="loadBatches">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
         </div>
-        <button class="act-btn act-btn--ghost" type="button" @click="loadBatches">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </button>
-      </div>
+      </template>
 
       <el-table :data="batches" v-loading="loading">
         <el-table-column prop="id" label="批次ID" width="100">
@@ -220,7 +223,7 @@
         class="table-pagination"
         @current-change="loadBatches"
       />
-    </section>
+    </el-card>
   </div>
 </template>
 
@@ -230,6 +233,7 @@ import { getProducts } from '@/api/products'
 import { importReviews, getBatches } from '@/api/reviews'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Refresh } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const uploadRef = ref()
 const products = ref([])
@@ -403,7 +407,54 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.content-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.card-header--stack {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: var(--space-1);
+}
+
+.card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
+}
+
+.card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--gray-500);
+}
+
+@media (max-width: 1024px) {
+  .content-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .import-form {
   display: grid;
   gap: 1px;
@@ -432,7 +483,60 @@ onMounted(() => {
 }
 
 .summary-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.summary-grid .data-kpi-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-grid .data-kpi-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gray-300);
+}
+
+.summary-grid .data-kpi-item--total {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, #ffffff 45%);
+}
+
+.summary-grid .data-kpi-item--total::before {
+  background: var(--primary-blue-light);
+}
+
+.summary-grid .data-kpi-item--success {
+  border-color: rgba(16, 185, 129, 0.24);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.11) 0%, #ffffff 45%);
+}
+
+.summary-grid .data-kpi-item--success::before {
+  background: var(--success);
+}
+
+.summary-grid .data-kpi-item--duplicate {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.11) 0%, #ffffff 45%);
+}
+
+.summary-grid .data-kpi-item--duplicate::before {
+  background: var(--warning);
+}
+
+.summary-grid .data-kpi-item--failed {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.1) 0%, #ffffff 45%);
+}
+
+.summary-grid .data-kpi-item--failed::before {
+  background: var(--danger);
 }
 
 .mono-num {

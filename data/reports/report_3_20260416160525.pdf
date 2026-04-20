@@ -1,0 +1,106 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1268 >>
+stream
+BT
+/F1 11 Tf
+15 TL
+50 800 Td
+(E-Commerce Review Analysis Report) Tj
+T*
+(Report ID: 3) Tj
+T*
+(Run ID: 3) Tj
+T*
+(Product: ???C) Tj
+T*
+(Generated At: 2026-04-16T16:05:25.621429) Tj
+T*
+(Total Reviews: 70) Tj
+T*
+() Tj
+T*
+(Sentiment Distribution) Tj
+T*
+(- positive: 0 \(0.0%\)) Tj
+T*
+(- neutral: 32 \(45.7%\)) Tj
+T*
+(- negative: 38 \(54.3%\)) Tj
+T*
+() Tj
+T*
+(Top Aspects) Tj
+T*
+(1. ?? | count=22 | positive_rate=0.0%) Tj
+T*
+(2. ?? | count=18 | positive_rate=0.0%) Tj
+T*
+(3. ?? | count=17 | positive_rate=0.0%) Tj
+T*
+(4. ?? | count=12 | positive_rate=0.0%) Tj
+T*
+(5. ?? | count=10 | positive_rate=0.0%) Tj
+T*
+(6. ?? | count=10 | positive_rate=0.0%) Tj
+T*
+(7. ?? | count=8 | positive_rate=0.0%) Tj
+T*
+(8. ?? | count=7 | positive_rate=0.0%) Tj
+T*
+(9. ?? | count=7 | positive_rate=0.0%) Tj
+T*
+(10. ?? | count=7 | positive_rate=0.0%) Tj
+T*
+() Tj
+T*
+(Top Issues) Tj
+T*
+(1. ?? | frequency=9 | score=0.66) Tj
+T*
+(2. ?? | frequency=8 | score=1.00) Tj
+T*
+(3. ?? | frequency=8 | score=0.52) Tj
+T*
+(4. ?? | frequency=8 | score=0.52) Tj
+T*
+(5. ?? | frequency=7 | score=0.35) Tj
+T*
+(6. ?? | frequency=7 | score=0.27) Tj
+T*
+(7. ?? | frequency=6 | score=0.55) Tj
+T*
+(8. ?? | frequency=5 | score=0.40) Tj
+T*
+(9. ?? | frequency=4 | score=0.48) Tj
+T*
+(10. ?? | frequency=4 | score=0.36) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000317 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1636
+%%EOF

@@ -1,13 +1,13 @@
 <template>
-  <div class="page-container page-container--narrow">
-    <div class="page-header page-block block-delay-1">
-      <h1 class="page-title">评论管理</h1>
-      <p class="page-description">筛选评论、查看详情并执行软删除与恢复。</p>
-    </div>
+  <div class="page-container">
+    <!-- Page Header -->
+    <PageHeader
+      title="评论管理"
+      description="筛选评论、查看详情并执行软删除与恢复"
+    />
 
-    <section class="page-toolbar page-block block-delay-1">
-      <div class="toolbar-row">
-        <div class="toolbar-left review-filters">
+    <section class="filter-section fade-in-delay-1">
+      <div class="filter-group">
           <el-select
             v-model="filters.product_id"
             placeholder="按商品筛选"
@@ -94,7 +94,6 @@
             批量恢复
           </el-button>
         </div>
-      </div>
     </section>
 
     <section class="table-surface page-block block-delay-2">
@@ -251,6 +250,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { getProducts } from '@/api/products'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   getBatches,
   getReviews,
@@ -461,7 +461,37 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background: var(--white-pure);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+@media (max-width: 1024px) {
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .review-filters {
   flex: 1;
   min-width: 0;

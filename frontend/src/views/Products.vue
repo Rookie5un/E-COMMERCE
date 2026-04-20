@@ -1,64 +1,68 @@
 <template>
   <div class="page-container">
-    <div class="page-header page-block block-delay-1 products-head">
-      <div>
-        <h1 class="page-title">商品管理</h1>
-        <p class="page-description">维护商品档案、筛选列表并进入单商品分析页。</p>
+    <!-- Page Header -->
+    <PageHeader
+      title="商品管理"
+      description="维护商品档案、筛选列表并进入单商品分析页"
+    >
+      <template #actions>
+        <el-button type="primary" @click="showCreateDialog">
+          <el-icon><Plus /></el-icon>
+          新增商品
+        </el-button>
+      </template>
+    </PageHeader>
+
+    <!-- Filters -->
+    <section class="filter-section fade-in-delay-1">
+      <div class="filter-group">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索商品名称"
+          clearable
+          style="width: 240px;"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
+        <el-select
+          v-model="selectedCategory"
+          placeholder="按品类筛选"
+          clearable
+          style="width: 180px;"
+          @change="handleFilterChange"
+        >
+          <el-option
+            v-for="category in PRODUCT_CATEGORIES"
+            :key="category"
+            :label="category"
+            :value="category"
+          />
+        </el-select>
+
+        <el-button @click="handleSearch">查询</el-button>
+        <el-button @click="handleResetFilters">重置</el-button>
       </div>
-      <el-button type="primary" @click="showCreateDialog">
-        <el-icon><Plus /></el-icon>
-        新增商品
-      </el-button>
-    </div>
 
-    <section class="page-toolbar page-block block-delay-1">
-      <div class="toolbar-row">
-        <div class="toolbar-left filter-group">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索商品名称"
-            clearable
-            class="keyword-input"
-            @clear="handleSearch"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-
-          <el-select
-            v-model="selectedCategory"
-            placeholder="按品类筛选"
-            clearable
-            class="category-select"
-            @change="handleFilterChange"
-          >
-            <el-option
-              v-for="category in PRODUCT_CATEGORIES"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
-          </el-select>
-
-          <el-button @click="handleSearch">查询</el-button>
-          <el-button @click="handleResetFilters">重置</el-button>
-        </div>
-
-        <div class="toolbar-right">
-          <span class="total-hint">共 {{ pagination.total }} 条</span>
-        </div>
+      <div class="filter-right">
+        <span class="total-count">共 {{ pagination.total }} 条</span>
       </div>
     </section>
 
-    <section class="table-surface page-block block-delay-2">
-      <div class="surface-head">
-        <div>
-          <h3 class="surface-title">商品列表</h3>
-          <p class="surface-subtitle">当前页 {{ products.length }} 条数据，可执行查看、编辑、删除操作。</p>
+    <!-- Table Card -->
+    <el-card class="table-card fade-in-delay-2">
+      <template #header>
+        <div class="card-header">
+          <div>
+            <span class="card-title">商品列表</span>
+            <span class="card-subtitle">当前页 {{ products.length }} 条数据</span>
+          </div>
         </div>
-      </div>
+      </template>
 
       <el-table :data="products" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80">
@@ -118,7 +122,7 @@
         @current-change="loadProducts"
         @size-change="loadProducts"
       />
-    </section>
+    </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form
@@ -174,6 +178,7 @@ import { useRouter } from 'vue-router'
 import { getProducts, createProduct, updateProduct, deleteProduct } from '@/api/products'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 
@@ -345,63 +350,96 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.products-head {
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+// Filter Section
+.filter-section {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background: var(--white-pure);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
 }
 
 .filter-group {
-  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.keyword-input {
-  width: min(300px, 100%);
+.filter-right {
+  flex-shrink: 0;
 }
 
-.category-select {
-  width: min(190px, 100%);
+.total-count {
+  font-size: var(--text-sm);
+  color: var(--gray-500);
+  font-family: var(--font-mono);
 }
 
-.total-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-family: 'DM Mono', monospace;
+// Table Card
+.table-card {
+  animation: fade-in-up 0.4s ease-out 0.1s both;
 }
 
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
+  margin-right: var(--space-3);
+}
+
+.card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--gray-500);
+}
+
+// Table Cells
 .product-name-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .product-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent-dim), var(--accent2-dim));
-  border: 1px solid var(--border-default);
-  color: var(--accent);
-  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
+  border: 1px solid var(--gray-200);
+  color: var(--primary-blue);
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
   flex-shrink: 0;
 }
 
 .product-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
 }
 
 .product-brand {
   margin-top: 2px;
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  color: var(--gray-500);
   max-width: 300px;
   white-space: nowrap;
   overflow: hidden;
@@ -409,48 +447,55 @@ onMounted(() => {
 }
 
 .platform-tag {
-  font-size: 11px;
-  font-family: 'DM Mono', monospace;
-  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--gray-600);
 }
 
 .mono-num {
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-}
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--gray-600);
 
-.mono-num.small {
-  font-size: 11px;
+  &.small {
+    font-size: var(--text-xs);
+  }
 }
 
 .action-btns {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .table-pagination {
-  margin-top: 12px;
+  margin-top: var(--space-4);
+  display: flex;
   justify-content: flex-end;
 }
 
-@media (max-width: 980px) {
-  .products-head {
+// Responsive
+@media (max-width: 1024px) {
+  .filter-section {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .products-head :deep(.el-button) {
+  .filter-group {
     width: 100%;
   }
 
-  .toolbar-right {
+  .filter-right {
     width: 100%;
-    justify-content: flex-start;
+    text-align: left;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
+  .filter-section {
+    padding: var(--space-4);
+  }
+
   .action-btns {
     flex-wrap: wrap;
     justify-content: flex-start;

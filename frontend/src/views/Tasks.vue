@@ -1,25 +1,26 @@
 <template>
-  <div class="page-container page-container--narrow">
-    <div class="page-header page-block block-delay-1 tasks-head">
-      <div>
-        <h1 class="page-title">任务管理</h1>
-        <p class="page-description">统一管理分析任务，支持创建、取消、重试和详情查看。</p>
-      </div>
-      <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon>
-        新建任务
-      </el-button>
-    </div>
+  <div class="page-container">
+    <!-- Page Header -->
+    <PageHeader
+      title="任务管理"
+      description="统一管理分析任务，支持创建、取消、重试和详情查看"
+    >
+      <template #actions>
+        <el-button type="primary" @click="openCreateDialog">
+          <el-icon><Plus /></el-icon>
+          新建任务
+        </el-button>
+      </template>
+    </PageHeader>
 
-    <section class="page-toolbar page-block block-delay-1">
-      <div class="toolbar-row">
-        <div class="toolbar-left">
-          <el-select
-            v-model="filters.product_id"
-            placeholder="按商品筛选"
-            clearable
-            class="filter-select"
-            @change="handleSearch"
+    <section class="filter-section fade-in-delay-1">
+      <div class="filter-group">
+        <el-select
+          v-model="filters.product_id"
+          placeholder="按商品筛选"
+          clearable
+          class="filter-select"
+          @change="handleSearch"
           >
             <el-option
               v-for="product in products"
@@ -43,10 +44,8 @@
             <el-option label="已取消" value="canceled" />
           </el-select>
 
-          <el-button @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </div>
-
+        <el-button @click="handleSearch">查询</el-button>
+        <el-button @click="handleReset">重置</el-button>
       </div>
     </section>
 
@@ -252,6 +251,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getProducts } from '@/api/products'
 import { getBatches } from '@/api/reviews'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   getAnalysisRuns,
   getAnalysisRun,
@@ -515,7 +515,37 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  background: var(--white-pure);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+@media (max-width: 1024px) {
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 .tasks-head {
   display: flex;
   align-items: flex-start;

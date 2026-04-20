@@ -10,7 +10,7 @@ const routes = [
   },
   {
     path: '/',
-    component: () => import('@/views/Layout.vue'),
+    component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {

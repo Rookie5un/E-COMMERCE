@@ -1,0 +1,18 @@
+{
+  "file_path": "backend/data/train_multiclass.csv",
+  "total_rows": 62247,
+  "unique_contents": 62247,
+  "duplicate_contents": 0,
+  "empty_contents": 0,
+  "missing_labels": 0,
+  "label_counts": {
+    "negative": 30198,
+    "neutral": 1402,
+    "positive": 30647
+  },
+  "min_length": 5,
+  "max_length": 500,
+  "average_length": 55.09,
+  "short_contents": 0,
+  "long_contents": 0
+}

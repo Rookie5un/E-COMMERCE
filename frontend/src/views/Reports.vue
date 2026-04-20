@@ -1,45 +1,60 @@
 <template>
   <div class="page-container">
-    <div class="page-header page-block block-delay-1 reports-head">
-      <div>
-        <h1 class="page-title">分析报告</h1>
-        <p class="page-description">查看历史报告摘要，并下载 PDF 归档。</p>
-      </div>
-      <button class="act-btn act-btn--ghost" type="button" @click="loadReports">
-        刷新列表
-      </button>
-    </div>
+    <!-- Page Header -->
+    <PageHeader
+      title="分析报告"
+      description="查看历史报告摘要，并下载 PDF 归档"
+    >
+      <template #actions>
+        <el-button @click="loadReports">刷新列表</el-button>
+      </template>
+    </PageHeader>
 
-    <section class="stats-grid page-block block-delay-2">
-      <article class="stat-card" style="--card-accent: #2563eb">
-        <div class="s-label">报告数量</div>
-        <div class="s-value">{{ pagination.total }}</div>
-        <div class="s-desc">当前系统报告总数</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #16a34a">
-        <div class="s-label">平均正向率</div>
-        <div class="s-value text-pos">{{ averagePositiveRate }}%</div>
-        <div class="s-desc">当前页统计</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #dc2626">
-        <div class="s-label">高风险报告</div>
-        <div class="s-value text-neg">{{ riskReportCount }}</div>
-        <div class="s-desc">负向率 ≥ 30%</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #0891b2">
-        <div class="s-label">可下载 PDF</div>
-        <div class="s-value">{{ downloadableCount }}</div>
-        <div class="s-desc">已生成归档文件</div>
-      </article>
+    <!-- Stats Cards -->
+    <section class="stats-grid fade-in-delay-1">
+      <StatCard
+        label="报告数量"
+        :value="pagination.total"
+        description="当前系统报告总数"
+        :icon="Document"
+        accent-color="#3b82f6"
+      />
+      <StatCard
+        label="平均正向率"
+        :value="averagePositiveRate"
+        description="当前页统计"
+        :icon="TrendCharts"
+        accent-color="#10b981"
+        format="percentage"
+        value-class="text-pos"
+      />
+      <StatCard
+        label="高风险报告"
+        :value="riskReportCount"
+        description="负向率 ≥ 30%"
+        :icon="Warning"
+        accent-color="#ef4444"
+        value-class="text-neg"
+      />
+      <StatCard
+        label="可下载 PDF"
+        :value="downloadableCount"
+        description="已生成归档文件"
+        :icon="Download"
+        accent-color="#06b6d4"
+      />
     </section>
 
-    <section class="table-surface page-block block-delay-3">
-      <div class="surface-head">
-        <div>
-          <h3 class="surface-title">报告列表</h3>
-          <p class="surface-subtitle">按批次汇总评论分析结果。</p>
+    <!-- Reports Table -->
+    <el-card class="table-card fade-in-delay-2">
+      <template #header>
+        <div class="card-header">
+          <div>
+            <span class="card-title">报告列表</span>
+            <span class="card-subtitle">按批次汇总评论分析结果</span>
+          </div>
         </div>
-      </div>
+      </template>
 
       <el-table :data="reports" v-loading="loading">
         <el-table-column label="报告标题" min-width="260">
@@ -112,9 +127,18 @@
         class="table-pagination"
         @current-change="loadReports"
       />
-    </section>
+    </el-card>
 
-    <el-dialog v-model="dialogVisible" title="报告详情" width="940px" top="4vh">
+    <el-dialog
+      v-model="dialogVisible"
+      title="报告详情"
+      width="90%"
+      top="3vh"
+      append-to-body
+      destroy-on-close
+      class="report-detail-dialog"
+      modal-class="report-detail-mask"
+    >
       <div v-if="currentReport" class="report-detail-stack">
         <section class="detail-block">
           <el-descriptions :column="2" border>
@@ -200,6 +224,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getReports, getReport, downloadReport as apiDownloadReport } from '@/api/reports'
 import { ElMessage } from 'element-plus'
+import { Document, TrendCharts, Warning, Download } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
+import StatCard from '@/components/StatCard.vue'
 
 const loading = ref(false)
 const reports = ref([])
@@ -357,7 +384,46 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.table-card {
+  animation: fade-in-up 0.4s ease-out 0.1s both;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
+  margin-right: var(--space-3);
+}
+
+.card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--gray-500);
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
 .reports-head {
   display: flex;
   align-items: flex-start;
@@ -417,6 +483,28 @@ onMounted(() => {
 .table-pagination {
   margin-top: 12px;
   justify-content: flex-end;
+}
+
+:deep(.report-detail-dialog) {
+  max-width: 1080px;
+}
+
+:deep(.report-detail-dialog .el-dialog__header) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #ffffff;
+}
+
+:deep(.report-detail-dialog .el-dialog__body) {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  padding-top: var(--space-4);
+}
+
+:deep(.report-detail-mask) {
+  background-color: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(4px);
 }
 
 .report-detail-stack {

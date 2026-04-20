@@ -79,5 +79,5 @@ backend/condaenv.*.requirements.txt
 docs/
 .claude/
 文献/
-data/
+
 design-system/

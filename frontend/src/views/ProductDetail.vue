@@ -1,27 +1,30 @@
 <template>
   <div class="page-container">
-    <div class="page-header page-block block-delay-1 detail-head">
-      <div>
-        <h1 class="page-title">商品详情</h1>
-        <p class="page-description">查看商品基础信息，并发起或跟踪分析任务。</p>
-      </div>
-      <div class="head-actions">
-        <button class="act-btn act-btn--ghost" type="button" @click="goTaskCenter">任务中心</button>
-        <button class="act-btn act-btn--ghost" type="button" @click="goBack">返回列表</button>
-      </div>
-    </div>
+    <!-- Page Header -->
+    <PageHeader
+      title="商品详情"
+      description="查看商品基础信息，并发起或跟踪分析任务"
+    >
+      <template #actions>
+        <el-button @click="goTaskCenter">任务中心</el-button>
+        <el-button @click="goBack">返回列表</el-button>
+      </template>
+    </PageHeader>
 
-    <section class="detail-surface page-block block-delay-2" v-loading="loading">
-      <div class="surface-head">
-        <div>
-          <h3 class="surface-title">{{ product.name || '商品信息' }}</h3>
-          <p class="surface-subtitle">档案信息与访问链接</p>
+    <!-- Product Info Card -->
+    <el-card class="info-card fade-in-delay-1" v-loading="loading">
+      <template #header>
+        <div class="card-header">
+          <div>
+            <span class="card-title">{{ product.name || '商品信息' }}</span>
+            <span class="card-subtitle">档案信息与访问链接</span>
+          </div>
+          <el-button type="primary" @click="startAnalysis">
+            <el-icon><DataAnalysis /></el-icon>
+            开始分析
+          </el-button>
         </div>
-        <el-button type="primary" @click="startAnalysis">
-          <el-icon><DataAnalysis /></el-icon>
-          开始分析
-        </el-button>
-      </div>
+      </template>
 
       <el-descriptions :column="3" border>
         <el-descriptions-item label="品类">{{ product.category || '-' }}</el-descriptions-item>
@@ -38,43 +41,60 @@
           {{ product.description || '-' }}
         </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <!-- Stats Cards -->
+    <section class="stats-grid fade-in-delay-2">
+      <StatCard
+        label="任务总数"
+        :value="analysisRuns.length"
+        description="历史分析任务"
+        :icon="List"
+        accent-color="#3b82f6"
+      />
+      <StatCard
+        label="已完成"
+        :value="completedCount"
+        description="可查看结果"
+        :icon="CircleCheck"
+        accent-color="#10b981"
+        value-class="text-pos"
+      />
+      <StatCard
+        label="运行中"
+        :value="runningCount"
+        description="等待处理完成"
+        :icon="Loading"
+        accent-color="#f59e0b"
+        value-class="text-neu"
+      />
+      <StatCard
+        label="失败"
+        :value="failedCount"
+        description="建议检查数据与模型"
+        :icon="CircleClose"
+        accent-color="#ef4444"
+        value-class="text-neg"
+      />
+      <StatCard
+        label="已取消"
+        :value="canceledCount"
+        description="人工终止任务"
+        :icon="RemoveFilled"
+        accent-color="#64748b"
+      />
     </section>
 
-    <section class="stats-grid page-block block-delay-3">
-      <article class="stat-card" style="--card-accent: #2563eb">
-        <div class="s-label">任务总数</div>
-        <div class="s-value">{{ analysisRuns.length }}</div>
-        <div class="s-desc">历史分析任务</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #16a34a">
-        <div class="s-label">已完成</div>
-        <div class="s-value text-pos">{{ completedCount }}</div>
-        <div class="s-desc">可查看结果</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #ca8a04">
-        <div class="s-label">运行中</div>
-        <div class="s-value text-neu">{{ runningCount }}</div>
-        <div class="s-desc">等待处理完成</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #dc2626">
-        <div class="s-label">失败</div>
-        <div class="s-value text-neg">{{ failedCount }}</div>
-        <div class="s-desc">建议检查数据与模型</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #64748b">
-        <div class="s-label">已取消</div>
-        <div class="s-value">{{ canceledCount }}</div>
-        <div class="s-desc">人工终止任务</div>
-      </article>
-    </section>
-
-    <section class="table-surface page-block block-delay-4">
-      <div class="surface-head">
-        <div>
-          <h3 class="surface-title">分析任务</h3>
-          <p class="surface-subtitle">查看任务状态并执行取消/重试</p>
+    <!-- Tasks Table -->
+    <el-card class="table-card fade-in-delay-3">
+      <template #header>
+        <div class="card-header">
+          <div>
+            <span class="card-title">分析任务</span>
+            <span class="card-subtitle">查看任务状态并执行取消/重试</span>
+          </div>
         </div>
-      </div>
+      </template>
 
       <el-table :data="analysisRuns">
         <el-table-column prop="id" label="任务ID" width="100">
@@ -136,7 +156,7 @@
           </template>
         </el-table-column>
       </el-table>
-    </section>
+    </el-card>
   </div>
 </template>
 
@@ -151,13 +171,15 @@ import {
   retryAnalysisRun
 } from '@/api/analysis'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { DataAnalysis } from '@element-plus/icons-vue'
+import { DataAnalysis, List, CircleCheck, Loading, CircleClose, RemoveFilled } from '@element-plus/icons-vue'
 import {
   getTaskStatusType,
   getTaskStatusText,
   isTaskCancelable,
   isTaskRetryable
 } from '@/utils/taskStatus'
+import PageHeader from '@/components/PageHeader.vue'
+import StatCard from '@/components/StatCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -281,51 +303,70 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.detail-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
 }
 
-.head-actions {
+// Cards
+.info-card,
+.table-card {
+  margin-bottom: var(--space-6);
+}
+
+.card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
 
+.card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
+  margin-right: var(--space-3);
+}
+
+.card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--gray-500);
+}
+
+// Stats Grid
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+// Product Link
 .product-link {
   word-break: break-all;
 }
 
+// Table Cells
 .mono-num {
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-}
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--gray-600);
 
-.mono-num.small {
-  font-size: 11px;
+  &.small {
+    font-size: var(--text-xs);
+  }
 }
 
 .action-btns {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
-@media (max-width: 900px) {
-  .detail-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .head-actions {
-    width: 100%;
-  }
-
-  .head-actions .act-btn {
-    flex: 1;
+// Responsive
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
   }
 
   .action-btns {

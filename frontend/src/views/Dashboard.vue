@@ -1,76 +1,84 @@
 <template>
   <div class="page-container">
-    <div class="page-header page-block block-delay-1">
-      <h1 class="page-title">分析总览</h1>
-      <p class="page-description">监控当前商品评论体量、情绪结构与高频问题。</p>
-    </div>
+    <!-- Page Header -->
+    <PageHeader
+      title="分析总览"
+      description="监控当前商品评论体量、情绪结构与高频问题"
+    >
+      <template #actions>
+        <el-select
+          v-model="selectedProduct"
+          placeholder="请选择商品"
+          style="width: 200px; margin-right: 12px;"
+          @change="handleProductChange"
+        >
+          <el-option
+            v-for="product in products"
+            :key="product.id"
+            :label="product.name"
+            :value="product.id"
+          />
+        </el-select>
+        <el-button type="primary" @click="loadSummary">刷新数据</el-button>
+      </template>
+    </PageHeader>
 
-    <section class="page-toolbar page-block block-delay-1">
-      <div class="toolbar-row">
-        <div class="toolbar-left">
-          <span class="toolbar-label">分析对象</span>
-          <el-select
-            v-model="selectedProduct"
-            placeholder="请选择商品"
-            class="product-select"
-            @change="handleProductChange"
-          >
-            <el-option
-              v-for="product in products"
-              :key="product.id"
-              :label="product.name"
-              :value="product.id"
-            />
-          </el-select>
-        </div>
-        <div class="toolbar-right">
-          <el-button @click="loadSummary">刷新数据</el-button>
-        </div>
-      </div>
+    <!-- Stats Cards -->
+    <section class="stats-grid fade-in-delay-1">
+      <StatCard
+        label="评论总数"
+        :value="summary.total_reviews || 0"
+        description="当前样本规模"
+        :icon="ChatLineRound"
+        accent-color="#3b82f6"
+      />
+      <StatCard
+        label="正向率"
+        :value="getPercentage('positive')"
+        description="可转化反馈占比"
+        :icon="Select"
+        accent-color="#10b981"
+        format="percentage"
+        value-class="text-pos"
+      />
+      <StatCard
+        label="中性率"
+        :value="getPercentage('neutral')"
+        description="待观察反馈占比"
+        :icon="Remove"
+        accent-color="#f59e0b"
+        format="percentage"
+        value-class="text-neu"
+      />
+      <StatCard
+        label="负向率"
+        :value="getPercentage('negative')"
+        description="需处理问题占比"
+        :icon="CloseBold"
+        accent-color="#ef4444"
+        format="percentage"
+        value-class="text-neg"
+      />
     </section>
 
-    <section class="stats-grid page-block block-delay-2">
-      <article class="stat-card" style="--card-accent: #2563eb">
-        <div class="s-label">评论总数</div>
-        <div class="s-value">{{ summary.total_reviews || 0 }}</div>
-        <div class="s-desc">当前样本规模</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #16a34a">
-        <div class="s-label">正向率</div>
-        <div class="s-value text-pos">{{ getPercentage('positive') }}%</div>
-        <div class="s-desc">可转化反馈占比</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #ca8a04">
-        <div class="s-label">中性率</div>
-        <div class="s-value text-neu">{{ getPercentage('neutral') }}%</div>
-        <div class="s-desc">待观察反馈占比</div>
-      </article>
-      <article class="stat-card" style="--card-accent: #dc2626">
-        <div class="s-label">负向率</div>
-        <div class="s-value text-neg">{{ getPercentage('negative') }}%</div>
-        <div class="s-desc">需处理问题占比</div>
-      </article>
-    </section>
-
-    <section class="charts-row page-block block-delay-3">
-      <div class="chart-box chart-box--half">
+    <!-- Charts Row 1 -->
+    <section class="charts-row fade-in-delay-2">
+      <div class="chart-box">
         <el-card class="chart-card">
           <template #header>
-            <div class="card-hd">
-              <span class="card-hd-dot" style="background: var(--accent)"></span>
-              情感分布
+            <div class="card-header">
+              <span class="card-title">情感分布</span>
             </div>
           </template>
           <v-chart :option="sentimentChartOption" class="chart-view" autoresize />
         </el-card>
       </div>
 
-      <div class="chart-box chart-box--half">
+      <div class="chart-box">
         <el-card class="chart-card">
           <template #header>
-            <div class="card-hd">
-              <span class="card-hd-dot" style="background: var(--accent2)"></span>
-              功能点提及 Top 10
+            <div class="card-header">
+              <span class="card-title">功能点提及 Top 10</span>
             </div>
           </template>
           <v-chart :option="aspectChartOption" class="chart-view" autoresize />
@@ -78,28 +86,27 @@
       </div>
     </section>
 
-    <section class="charts-row charts-row--bottom page-block block-delay-4">
-      <div class="chart-box chart-box--half">
-        <el-card class="chart-card chart-card--stretch">
+    <!-- Charts Row 2 -->
+    <section class="charts-row fade-in-delay-3">
+      <div class="chart-box">
+        <el-card class="chart-card">
           <template #header>
-            <div class="card-hd">
-              <span class="card-hd-dot" style="background: var(--neg)"></span>
-              负面问题 Top 10
+            <div class="card-header">
+              <span class="card-title">负面问题 Top 10</span>
             </div>
           </template>
-          <v-chart :option="issueChartOption" class="chart-view issue-chart issue-chart--row" autoresize />
+          <v-chart :option="issueChartOption" class="chart-view" autoresize />
         </el-card>
       </div>
 
-      <div class="chart-box chart-box--half">
-        <el-card class="chart-card chart-card--stretch">
+      <div class="chart-box">
+        <el-card class="chart-card">
           <template #header>
-            <div class="card-hd">
-              <span class="card-hd-dot" style="background: #0e7490"></span>
-              关键词词云
+            <div class="card-header">
+              <span class="card-title">关键词词云</span>
             </div>
           </template>
-          <v-chart :option="wordCloudChartOption" class="chart-view issue-chart issue-chart--row word-cloud-view" autoresize />
+          <v-chart :option="wordCloudChartOption" class="chart-view word-cloud-view" autoresize />
         </el-card>
       </div>
     </section>
@@ -117,6 +124,9 @@ import VChart from 'vue-echarts'
 import { getProducts } from '@/api/products'
 import { getAnalysisSummary } from '@/api/analysis'
 import { ElMessage } from 'element-plus'
+import { ChatLineRound, Select, Remove, CloseBold } from '@element-plus/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
+import StatCard from '@/components/StatCard.vue'
 
 use([CanvasRenderer, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
@@ -467,76 +477,94 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.toolbar-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
+<style scoped lang="scss">
+.page-container {
+  animation: fade-in-up 0.4s ease-out both;
 }
 
-.product-select {
-  width: min(360px, 100%);
+// Stats Grid
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
+// Charts Layout
 .charts-row {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
 }
 
 .chart-box {
   min-width: 0;
 }
 
-.chart-box--half {
-  flex: 1;
+.chart-card {
+  height: 100%;
+  transition: all var(--transition-slow);
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--gray-900);
 }
 
 .chart-view {
-  height: 272px;
-}
-
-.issue-chart {
-  height: 306px;
-}
-
-.issue-chart--row {
-  height: 360px;
+  height: 320px;
+  width: 100%;
 }
 
 .word-cloud-view {
   height: 360px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background:
-    radial-gradient(circle at 16% 22%, rgba(14, 116, 144, 0.13), transparent 35%),
-    radial-gradient(circle at 84% 78%, rgba(37, 99, 235, 0.1), transparent 38%),
-    linear-gradient(135deg, #fbfdff 0%, #f3f9ff 45%, #f8fafc 100%);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: var(--radius-md);
 }
 
-.card-hd {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-hd-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-@media (max-width: 960px) {
+// Responsive
+@media (max-width: 1024px) {
   .charts-row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
-  .issue-chart--row {
-    height: 300px;
+  .chart-view {
+    height: 280px;
   }
 
   .word-cloud-view {
     height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .charts-row {
+    gap: var(--space-4);
+  }
+
+  .chart-view {
+    height: 240px;
+  }
+
+  .word-cloud-view {
+    height: 260px;
   }
 }
 </style>
