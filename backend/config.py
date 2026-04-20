@@ -29,12 +29,12 @@ class Config:
 
     # NLP模型配置
     MODEL_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'models')
-    SENTIMENT_MODEL = os.getenv('SENTIMENT_MODEL', 'roberta-sentiment')
+    SENTIMENT_MODEL = os.getenv('SENTIMENT_MODEL', 'roberta-sentiment-retrain-2026-04-17-1318')
     SENTIMENT_MODEL_FALLBACK = os.getenv(
         'SENTIMENT_MODEL_FALLBACK',
         'hfl/chinese-roberta-wwm-ext'
     )
-    SENTIMENT_MODEL_VERSION = os.getenv('SENTIMENT_MODEL_VERSION', 'tri-class-v1')
+    SENTIMENT_MODEL_VERSION = os.getenv('SENTIMENT_MODEL_VERSION', 'tri-class-retrain')
 
     # Celery配置
     CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')

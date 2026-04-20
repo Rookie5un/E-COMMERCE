@@ -145,13 +145,30 @@ class EarlyStopping:
 
 
 def load_data(file_path):
-    """加载训练数据"""
-    texts, labels, summary = load_labeled_texts(
-        file_path,
-        require_all_labels=True,
-        min_samples_per_label=2,
-        min_content_length=5,
-    )
+    """加载训练数据并自动去重"""
+    import pandas as pd
+    from training_data_utils import read_training_csv, normalize_training_dataframe, LABEL_TO_ID
+
+    # 读取并规范化数据
+    df = read_training_csv(file_path)
+    df = normalize_training_dataframe(df)
+
+    # 去重：保留每个content的第一次出现
+    original_count = len(df)
+    df = df.drop_duplicates(subset=['content'], keep='first')
+    removed_count = original_count - len(df)
+
+    if removed_count > 0:
+        print(f"已去除 {removed_count} 条重复文本，剩余 {len(df)} 条")
+
+    # 转换为列表格式
+    texts = df['content'].tolist()
+    labels = [LABEL_TO_ID[label] for label in df['label'].tolist()]
+
+    # 构建摘要（用于显示统计信息）
+    from training_data_utils import build_dataset_summary
+    summary = build_dataset_summary(df, file_path)
+
     return texts, labels, summary
 
 
@@ -213,15 +230,7 @@ def evaluate_one_fold(model, val_texts, val_labels, args, device):
     return {'f1': 0.85, 'accuracy': 0.87}
 
 
-def load_data(file_path):
-    """加载训练数据"""
-    texts, labels, summary = load_labeled_texts(
-        file_path,
-        require_all_labels=True,
-        min_samples_per_label=2,
-        min_content_length=5,
-    )
-    return texts, labels, summary
+# 移除重复的 load_data 定义，使用上面的版本
 
 
 def train_epoch(model, dataloader, optimizer, scheduler, device, criterion=None,
