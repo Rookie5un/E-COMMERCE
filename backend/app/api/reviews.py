@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from app.models import Review, ReviewBatch, Product
 from app.models.analysis import ReviewSentiment
+from app.api.permissions import admin_required
 from app.services.review_service import ReviewService
 from sqlalchemy import or_
 import os
@@ -13,6 +14,7 @@ bp = Blueprint('reviews', __name__)
 
 @bp.route('/import', methods=['POST'])
 @jwt_required()
+@admin_required
 def import_reviews():
     """导入评论CSV文件或手动输入的评论"""
     try:
@@ -121,6 +123,7 @@ def import_reviews():
 
 @bp.route('/batches', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_batches():
     """获取导入批次列表"""
     product_id = request.args.get('product_id', type=int)
@@ -146,6 +149,7 @@ def get_batches():
 
 @bp.route('/batches/<int:batch_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_batch(batch_id):
     """获取批次详情"""
     batch = ReviewBatch.query.get(batch_id)
@@ -157,6 +161,7 @@ def get_batch(batch_id):
 
 @bp.route('', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_reviews():
     """获取评论列表"""
     product_id = request.args.get('product_id', type=int)
@@ -228,6 +233,7 @@ def get_reviews():
 
 @bp.route('/<int:review_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_review(review_id):
     """获取评论详情"""
     review = Review.query.get(review_id)
@@ -239,6 +245,7 @@ def get_review(review_id):
 
 @bp.route('/<int:review_id>/validity', methods=['PATCH'])
 @jwt_required()
+@admin_required
 def update_review_validity(review_id):
     """更新评论有效性（软删除/恢复）"""
     data = request.get_json(silent=True) or {}
@@ -260,6 +267,7 @@ def update_review_validity(review_id):
 
 @bp.route('/bulk-validity', methods=['POST'])
 @jwt_required()
+@admin_required
 def bulk_update_review_validity():
     """批量更新评论有效性（软删除/恢复）"""
     data = request.get_json(silent=True) or {}

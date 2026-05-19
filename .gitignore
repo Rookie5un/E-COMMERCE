@@ -64,6 +64,7 @@ temp/
 backend/data/uploads/
 backend/data/reports/
 backend/data/models/
+backend/data/experiments/
 backend/condaenv.*.requirements.txt
 
 # =========================
@@ -78,6 +79,12 @@ backend/condaenv.*.requirements.txt
 # =========================
 docs/
 .claude/
+.agents/
+.tmp_table_render/
+outputs/
+data/uploads/
+data/reports/
+*.tar.gz
 文献/
 
 design-system/

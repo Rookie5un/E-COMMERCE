@@ -1,5 +1,6 @@
 from datetime import datetime
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 from flask_jwt_extended import create_access_token
@@ -8,6 +9,7 @@ from werkzeug.security import generate_password_hash
 from app import create_app, db
 from app.models import User, Product, ReviewBatch, Review
 from app.models.analysis import AnalysisRun
+from app.services.analysis_dispatcher import AnalysisDispatchError
 
 
 class ManagementApiTestCase(unittest.TestCase):
@@ -38,10 +40,15 @@ class ManagementApiTestCase(unittest.TestCase):
             id=self.user_id,
             username='tester',
             password=generate_password_hash('test123456'),
-            role='analyst',
+            role='admin',
             status='active',
         )
         db.session.add(user)
+        db.session.commit()
+
+    def _set_user_role(self, role):
+        user = db.session.get(User, self.user_id)
+        user.role = role
         db.session.commit()
 
     def _create_product(self):
@@ -173,6 +180,132 @@ class ManagementApiTestCase(unittest.TestCase):
         self.assertTrue(Review.query.get(review_1.id).is_valid)
         self.assertTrue(Review.query.get(review_3.id).is_valid)
 
+    def test_create_analysis_run_dispatches_queue(self):
+        product_id, batch_id, *_ = self._seed_reviews()
+
+        with patch('app.api.analysis.dispatch_analysis_run') as mock_dispatch:
+            resp = self.client.post(
+                '/api/analysis/run',
+                headers=self.headers,
+                json={'product_id': product_id, 'batch_id': batch_id},
+            )
+
+        self.assertEqual(resp.status_code, 201)
+        payload = resp.get_json()
+        self.assertEqual(payload['run']['status'], 'pending')
+        mock_dispatch.assert_called_once_with(payload['run']['id'])
+
+    def test_create_analysis_run_returns_error_when_dispatch_fails(self):
+        product_id, batch_id, *_ = self._seed_reviews()
+
+        def fail_dispatch(run_id):
+            run = db.session.get(AnalysisRun, run_id)
+            now = datetime.utcnow()
+            run.status = 'failed'
+            run.error_message = '任务投递失败: redis down'
+            run.finished_at = now
+            run.progress_stage = 'failed'
+            run.progress_message = run.error_message
+            run.progress_updated_at = now
+            db.session.commit()
+            raise AnalysisDispatchError('redis down')
+
+        with patch('app.api.analysis.dispatch_analysis_run', side_effect=fail_dispatch):
+            resp = self.client.post(
+                '/api/analysis/run',
+                headers=self.headers,
+                json={'product_id': product_id, 'batch_id': batch_id},
+            )
+
+        self.assertEqual(resp.status_code, 503)
+        payload = resp.get_json()
+        self.assertEqual(payload['error'], '分析任务投递失败')
+        self.assertEqual(payload['run']['status'], 'failed')
+
+    def test_dispatcher_falls_back_to_thread_when_celery_fails(self):
+        from app.services import analysis_dispatcher
+
+        self.app.config.update(
+            TESTING=False,
+            ANALYSIS_TASK_BACKEND='celery',
+            ANALYSIS_THREAD_FALLBACK=True,
+            ANALYSIS_QUEUE_NAME='analysis',
+        )
+
+        with patch.object(
+            analysis_dispatcher,
+            '_enqueue_celery_run',
+            side_effect=RuntimeError('redis down'),
+        ), patch.object(analysis_dispatcher, '_start_analysis_thread') as mock_thread:
+            result = analysis_dispatcher.dispatch_analysis_run(123)
+
+        self.assertEqual(result.backend, 'thread')
+        self.assertTrue(result.fallback_used)
+        mock_thread.assert_called_once_with(123)
+
+    def test_dispatcher_marks_failed_when_fallback_disabled(self):
+        from app.services import analysis_dispatcher
+
+        product_id, batch_id, *_ = self._seed_reviews()
+        run = self._create_run(product_id, batch_id, status='pending')
+        self.app.config.update(
+            TESTING=False,
+            ANALYSIS_TASK_BACKEND='celery',
+            ANALYSIS_THREAD_FALLBACK=False,
+            ANALYSIS_QUEUE_NAME='analysis',
+        )
+
+        with patch.object(
+            analysis_dispatcher,
+            '_enqueue_celery_run',
+            side_effect=RuntimeError('redis down'),
+        ):
+            with self.assertRaises(AnalysisDispatchError):
+                analysis_dispatcher.dispatch_analysis_run(run.id)
+
+        db.session.expire_all()
+        failed_run = db.session.get(AnalysisRun, run.id)
+        self.assertEqual(failed_run.status, 'failed')
+        self.assertEqual(failed_run.progress_stage, 'failed')
+        self.assertIn('任务投递失败', failed_run.error_message)
+
+    def test_analysis_service_claims_pending_and_skips_duplicate_runs(self):
+        from app.services.analysis_service import AnalysisService
+
+        product_id, batch_id, *_ = self._seed_reviews()
+        pending_run = self._create_run(product_id, batch_id, status='pending')
+        service = AnalysisService()
+        observed_statuses = []
+
+        def observe_running_status(run_id, reviews):
+            db.session.expire_all()
+            observed_statuses.append(db.session.get(AnalysisRun, pending_run.id).status)
+
+        with patch(
+            'app.services.analysis_service.resolve_sentiment_model_path',
+            return_value='mock-model',
+        ), patch('app.services.analysis_service.SentimentAnalyzer'), patch.object(
+            service,
+            '_analyze_sentiment',
+            side_effect=observe_running_status,
+        ) as mock_sentiment, patch.object(service, '_extract_aspects'), patch.object(
+            service,
+            '_extract_issues',
+        ):
+            service.run_analysis(pending_run.id)
+
+        self.assertEqual(observed_statuses, ['running'])
+        mock_sentiment.assert_called_once()
+        db.session.expire_all()
+        self.assertEqual(db.session.get(AnalysisRun, pending_run.id).status, 'completed')
+
+        for status in ['running', 'completed', 'failed', 'canceled']:
+            skipped_run = self._create_run(product_id, batch_id, status=status)
+            service = AnalysisService()
+            with patch.object(service, '_analyze_sentiment') as mock_sentiment:
+                service.run_analysis(skipped_run.id)
+            mock_sentiment.assert_not_called()
+
     def test_cancel_and_retry_analysis_run(self):
         product_id, batch_id, *_ = self._seed_reviews()
         run = self._create_run(product_id, batch_id, status='pending')
@@ -206,6 +339,71 @@ class ManagementApiTestCase(unittest.TestCase):
         self.assertEqual(payload['total'], 1)
         self.assertEqual(payload['runs'][0]['id'], canceled_run.id)
         self.assertEqual(payload['runs'][0]['status'], 'canceled')
+
+    def test_analyst_can_only_view_dashboard_support_data(self):
+        product_id, batch_id, *_ = self._seed_reviews()
+        pending_run = self._create_run(product_id, batch_id, status='pending')
+        self._create_run(product_id, batch_id, status='completed')
+        self._set_user_role('analyst')
+
+        products_resp = self.client.get('/api/products', headers=self.headers)
+        self.assertEqual(products_resp.status_code, 200)
+
+        summary_resp = self.client.get(
+            f'/api/analysis/summary?product_id={product_id}',
+            headers=self.headers,
+        )
+        self.assertEqual(summary_resp.status_code, 200)
+
+        pending_summary_resp = self.client.get(
+            f'/api/analysis/summary?run_id={pending_run.id}',
+            headers=self.headers,
+        )
+        self.assertEqual(pending_summary_resp.status_code, 403)
+
+    def test_analyst_cannot_access_management_endpoints(self):
+        product_id, batch_id, review_1, *_ = self._seed_reviews()
+        run = self._create_run(product_id, batch_id, status='pending')
+        self._set_user_role('analyst')
+
+        blocked_responses = [
+            self.client.post('/api/products', headers=self.headers, json={
+                'name': '新商品',
+                'category': '手机数码',
+                'platform': '京东',
+            }),
+            self.client.get(f'/api/products/{product_id}', headers=self.headers),
+            self.client.get('/api/reviews', headers=self.headers),
+            self.client.patch(
+                f'/api/reviews/{review_1.id}/validity',
+                headers=self.headers,
+                json={'is_valid': False},
+            ),
+            self.client.post(
+                '/api/analysis/run',
+                headers=self.headers,
+                json={'product_id': product_id, 'batch_id': batch_id},
+            ),
+            self.client.get('/api/analysis/runs', headers=self.headers),
+            self.client.post(
+                f'/api/analysis/runs/{run.id}/cancel',
+                headers=self.headers,
+            ),
+        ]
+
+        for response in blocked_responses:
+            self.assertEqual(response.status_code, 403)
+
+    def test_public_register_cannot_create_admin_user(self):
+        resp = self.client.post('/api/auth/register', json={
+            'username': 'new_admin',
+            'password': 'test123456',
+            'role': 'admin',
+        })
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.get_json()['user']['role'], 'analyst')
+        self.assertEqual(User.query.filter_by(username='new_admin').one().role, 'analyst')
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Product, User
+from app.api.permissions import admin_required
 from sqlalchemy import or_
 
 bp = Blueprint('products', __name__)
@@ -49,6 +50,7 @@ def get_products():
 
 @bp.route('/<int:product_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_product(product_id):
     """获取商品详情"""
     product = Product.query.get(product_id)
@@ -60,6 +62,7 @@ def get_product(product_id):
 
 @bp.route('', methods=['POST'])
 @jwt_required()
+@admin_required
 def create_product():
     """创建商品"""
     try:
@@ -93,6 +96,7 @@ def create_product():
 
 @bp.route('/<int:product_id>', methods=['PUT'])
 @jwt_required()
+@admin_required
 def update_product(product_id):
     """更新商品"""
     product = Product.query.get(product_id)
@@ -122,6 +126,7 @@ def update_product(product_id):
 
 @bp.route('/<int:product_id>', methods=['DELETE'])
 @jwt_required()
+@admin_required
 def delete_product(product_id):
     """删除商品"""
     product = Product.query.get(product_id)
@@ -136,6 +141,7 @@ def delete_product(product_id):
 
 @bp.route('/categories', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_categories():
     """获取所有品类"""
     categories = db.session.query(Product.category).distinct().all()
@@ -146,6 +152,7 @@ def get_categories():
 
 @bp.route('/platforms', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_platforms():
     """获取所有平台"""
     platforms = db.session.query(Product.platform).distinct().all()

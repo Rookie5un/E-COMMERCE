@@ -1,0 +1,18 @@
+{
+  "file_path": "data/train_balanced_full.csv",
+  "total_rows": 77486,
+  "unique_contents": 77486,
+  "duplicate_contents": 0,
+  "empty_contents": 0,
+  "missing_labels": 0,
+  "label_counts": {
+    "negative": 30198,
+    "neutral": 16641,
+    "positive": 30647
+  },
+  "min_length": 5,
+  "max_length": 1028,
+  "average_length": 75.94,
+  "short_contents": 0,
+  "long_contents": 0
+}

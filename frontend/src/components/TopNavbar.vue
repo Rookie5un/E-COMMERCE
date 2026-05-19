@@ -48,19 +48,12 @@
               {{ userInitials }}
             </div>
             <span class="user-name" v-if="!isMobile">{{ userName }}</span>
+            <span class="role-badge" v-if="!isMobile">{{ userRoleLabel }}</span>
             <el-icon :size="14"><ArrowDown /></el-icon>
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">
-                <el-icon><User /></el-icon>
-                个人资料
-              </el-dropdown-item>
-              <el-dropdown-item command="settings">
-                <el-icon><Setting /></el-icon>
-                系统设置
-              </el-dropdown-item>
-              <el-dropdown-item divided command="logout">
+              <el-dropdown-item command="logout">
                 <el-icon><SwitchButton /></el-icon>
                 退出登录
               </el-dropdown-item>
@@ -123,8 +116,6 @@ import {
   List,
   Document,
   Clock,
-  User,
-  Setting,
   SwitchButton,
   ArrowDown,
   Menu
@@ -135,7 +126,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 // Menu Items
-const menuItems = [
+const allMenuItems = [
   { path: '/dashboard', label: '分析总览', icon: DataAnalysis },
   { path: '/products', label: '商品管理', icon: Box },
   { path: '/import', label: '数据导入', icon: Upload },
@@ -143,6 +134,12 @@ const menuItems = [
   { path: '/tasks', label: '任务管理', icon: List },
   { path: '/reports', label: '分析报告', icon: Document }
 ]
+
+const analystMenuPaths = ['/dashboard', '/reports']
+const menuItems = computed(() => {
+  if (authStore.isAdmin) return allMenuItems
+  return allMenuItems.filter(item => analystMenuPaths.includes(item.path))
+})
 
 // Mobile state
 const isMobile = ref(false)
@@ -153,6 +150,11 @@ const currentTime = ref('')
 
 // User info
 const userName = computed(() => authStore.user?.username || '用户')
+const userRoleLabel = computed(() => {
+  if (authStore.isAdmin) return '管理员'
+  if (authStore.isAnalyst) return '分析员'
+  return '用户'
+})
 const userInitials = computed(() => {
   const name = userName.value
   return name.substring(0, 2).toUpperCase()
@@ -185,12 +187,6 @@ const toggleMobileMenu = () => {
 // Handle dropdown commands
 const handleCommand = (command) => {
   switch (command) {
-    case 'profile':
-      // Handle profile
-      break
-    case 'settings':
-      // Handle settings
-      break
     case 'logout':
       authStore.logout()
       router.push('/login')
@@ -407,6 +403,15 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   color: var(--gray-700);
+}
+
+.role-badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
 }
 
 .mobile-menu-btn {

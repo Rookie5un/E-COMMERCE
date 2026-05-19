@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.analysis import Report, AnalysisRun
+from app.api.permissions import admin_required, get_current_user
 from app.services.report_service import ReportService
 import os
 
@@ -9,6 +10,7 @@ bp = Blueprint('reports', __name__)
 
 @bp.route('', methods=['POST'])
 @jwt_required()
+@admin_required
 def create_report():
     """生成分析报告"""
     try:
@@ -50,13 +52,19 @@ def create_report():
 @jwt_required()
 def get_reports():
     """获取报告列表"""
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({'error': '无效的身份令牌'}), 401
+
     run_id = request.args.get('run_id', type=int)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
     query = Report.query
+    if current_user.role != 'admin':
+        query = query.join(AnalysisRun).filter(AnalysisRun.status == 'completed')
     if run_id:
-        query = query.filter_by(run_id=run_id)
+        query = query.filter(Report.run_id == run_id)
 
     pagination = query.order_by(Report.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
@@ -75,9 +83,15 @@ def get_reports():
 @jwt_required()
 def get_report(report_id):
     """获取报告详情"""
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({'error': '无效的身份令牌'}), 401
+
     report = Report.query.get(report_id)
     if not report:
         return jsonify({'error': '报告不存在'}), 404
+    if current_user.role != 'admin' and report.run.status != 'completed':
+        return jsonify({'error': '分析员只能查看已完成的分析报告'}), 403
 
     return jsonify(report.to_dict()), 200
 
@@ -86,9 +100,15 @@ def get_report(report_id):
 @jwt_required()
 def download_report(report_id):
     """下载报告PDF"""
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({'error': '无效的身份令牌'}), 401
+
     report = Report.query.get(report_id)
     if not report:
         return jsonify({'error': '报告不存在'}), 404
+    if current_user.role != 'admin' and report.run.status != 'completed':
+        return jsonify({'error': '分析员只能下载已完成的分析报告'}), 403
 
     if not report.pdf_path or not os.path.exists(report.pdf_path):
         return jsonify({'error': 'PDF文件不存在'}), 404

@@ -42,6 +42,7 @@
 - SQLAlchemy 2.x + PyMySQL
 - Flask-JWT-Extended
 - Flask-Migrate
+- Celery + Redis（分析任务队列）
 - jieba / Transformers / PyTorch（可选）
 - reportlab（PDF 导出）
 
@@ -123,10 +124,23 @@ cp .env.example .env
 重点配置项（`backend/.env`）：
 - `DATABASE_URL`
 - `JWT_SECRET_KEY`
+- `CELERY_BROKER_URL`
+- `CELERY_RESULT_BACKEND`
+- `ANALYSIS_TASK_BACKEND`
+- `ANALYSIS_THREAD_FALLBACK`
+- `ANALYSIS_QUEUE_NAME`
 - `CORS_ORIGINS`
 - `PORT`
 
-### 4) 启动后端
+### 4) 启动 Redis
+
+分析任务默认通过 Celery + Redis 投递。开发环境可直接启动本地 Redis：
+
+```bash
+redis-server
+```
+
+### 5) 启动后端
 
 ```bash
 python run.py
@@ -134,6 +148,17 @@ python run.py
 
 默认地址：
 - `http://localhost:5000`（若 `.env` 配了 `PORT` 则以 `.env` 为准）
+
+### 6) 启动分析任务 Worker
+
+另开一个终端：
+
+```bash
+cd backend
+celery -A celery_worker.celery worker -Q analysis --loglevel=info --concurrency=1
+```
+
+如果 Redis 或 Celery worker 暂时不可用，且 `ANALYSIS_THREAD_FALLBACK=true`，后端会退回到本地后台线程执行分析任务。
 
 ---
 

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
@@ -15,6 +15,19 @@ def _parse_current_user_id():
         return int(identity)
     except (TypeError, ValueError):
         return None
+
+
+def _ensure_user_id_for_testing(user: User):
+    """SQLite 测试环境下，BigInteger 主键不会自动递增，需手动赋值。"""
+    if not current_app.config.get('TESTING'):
+        return
+    if db.engine.dialect.name != 'sqlite':
+        return
+    if user.id is not None:
+        return
+
+    max_id = db.session.query(db.func.max(User.id)).scalar() or 0
+    user.id = int(max_id) + 1
 
 
 @bp.route('/register', methods=['POST'])
@@ -36,8 +49,9 @@ def register():
         password=generate_password_hash(data['password']),
         email=data.get('email'),
         real_name=data.get('real_name'),
-        role=data.get('role', 'analyst')
+        role='analyst'
     )
+    _ensure_user_id_for_testing(user)
 
     db.session.add(user)
     db.session.commit()

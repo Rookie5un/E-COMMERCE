@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
+import { ElMessage } from 'element-plus'
 
 const routes = [
   {
@@ -27,31 +28,31 @@ const routes = [
         path: 'products',
         name: 'Products',
         component: () => import('@/views/Products.vue'),
-        meta: { title: '商品管理' }
+        meta: { title: '商品管理', roles: ['admin'] }
       },
       {
         path: 'products/:id',
         name: 'ProductDetail',
         component: () => import('@/views/ProductDetail.vue'),
-        meta: { title: '商品详情' }
+        meta: { title: '商品详情', roles: ['admin'] }
       },
       {
         path: 'import',
         name: 'Import',
         component: () => import('@/views/Import.vue'),
-        meta: { title: '数据导入' }
+        meta: { title: '数据导入', roles: ['admin'] }
       },
       {
         path: 'reviews',
         name: 'Reviews',
         component: () => import('@/views/Reviews.vue'),
-        meta: { title: '评论管理' }
+        meta: { title: '评论管理', roles: ['admin'] }
       },
       {
         path: 'tasks',
         name: 'Tasks',
         component: () => import('@/views/Tasks.vue'),
-        meta: { title: '任务管理' }
+        meta: { title: '任务管理', roles: ['admin'] }
       },
       {
         path: 'reports',
@@ -69,7 +70,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
@@ -77,6 +78,21 @@ router.beforeEach((to, from, next) => {
   } else if (to.path === '/login' && authStore.isAuthenticated) {
     next('/')
   } else {
+    if (to.meta.requiresAuth && !authStore.user) {
+      await authStore.fetchUser()
+    }
+    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+      next('/login')
+      return
+    }
+
+    const allowedRoles = to.meta.roles
+    if (Array.isArray(allowedRoles) && !allowedRoles.includes(authStore.userRole)) {
+      ElMessage.error('没有权限访问')
+      next('/dashboard')
+      return
+    }
+
     next()
   }
 })

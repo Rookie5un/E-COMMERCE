@@ -43,10 +43,15 @@ class ReportsApiTestCase(unittest.TestCase):
             id=self.user_id,
             username='report_tester',
             password=generate_password_hash('test123456'),
-            role='analyst',
+            role='admin',
             status='active',
         )
         db.session.add(user)
+        db.session.commit()
+
+    def _set_user_role(self, role):
+        user = db.session.get(User, self.user_id)
+        user.role = role
         db.session.commit()
 
     def _seed_completed_run_with_results(self):
@@ -211,6 +216,41 @@ class ReportsApiTestCase(unittest.TestCase):
             self.assertTrue(response.data.startswith(b'%PDF'))
         finally:
             response.close()
+
+    def test_analyst_can_view_and_download_completed_reports_but_not_create(self):
+        run = self._seed_completed_run_with_results()
+        create_resp = self.client.post(
+            '/api/reports',
+            headers=self.headers,
+            json={'run_id': run.id},
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        report_id = create_resp.get_json()['report']['id']
+        self._set_user_role('analyst')
+
+        denied_resp = self.client.post(
+            '/api/reports',
+            headers=self.headers,
+            json={'run_id': run.id},
+        )
+        self.assertEqual(denied_resp.status_code, 403)
+
+        list_resp = self.client.get('/api/reports', headers=self.headers)
+        self.assertEqual(list_resp.status_code, 200)
+        self.assertEqual(list_resp.get_json()['total'], 1)
+
+        detail_resp = self.client.get(f'/api/reports/{report_id}', headers=self.headers)
+        self.assertEqual(detail_resp.status_code, 200)
+
+        download_resp = self.client.get(
+            f'/api/reports/{report_id}/download',
+            headers=self.headers,
+        )
+        try:
+            self.assertEqual(download_resp.status_code, 200)
+            self.assertTrue(download_resp.data.startswith(b'%PDF'))
+        finally:
+            download_resp.close()
 
 
 if __name__ == '__main__':

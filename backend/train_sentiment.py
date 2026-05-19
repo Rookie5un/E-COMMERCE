@@ -571,6 +571,35 @@ def main():
     print(f'模型已保存到: {args.output_dir}')
     print(f'{"="*60}')
 
+    # 保存训练结果摘要
+    from datetime import datetime
+    training_summary = {
+        'training_completed_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'best_metrics': {
+            'f1_score': float(best_f1),
+            'accuracy': float(best_accuracy)
+        },
+        'training_config': {
+            'train_file': args.train_file,
+            'model_name': args.model_name,
+            'epochs': args.epochs,
+            'batch_size': args.batch_size,
+            'learning_rate': args.learning_rate,
+            'max_length': args.max_length,
+            'use_fgm': args.use_fgm,
+            'use_class_weight': args.use_class_weight,
+            'early_stopping': args.early_stopping,
+            'loss_type': args.loss_type
+        },
+        'dataset_info': dataset_summary.to_dict()
+    }
+
+    summary_file = os.path.join(args.output_dir, 'training_summary.json')
+    with open(summary_file, 'w', encoding='utf-8') as f:
+        json.dump(training_summary, f, ensure_ascii=False, indent=2)
+
+    print(f'\n训练结果摘要已保存到: {summary_file}')
+
 
 if __name__ == '__main__':
     main()

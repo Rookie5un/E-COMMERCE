@@ -48,37 +48,23 @@ class AnalysisService:
         Args:
             run_id: 分析任务ID
         """
-        run = AnalysisRun.query.get(run_id)
+        run = self._get_run(run_id, refresh=True)
         if not run:
             raise ValueError(f'分析任务 {run_id} 不存在')
 
-        if run.status == 'canceled':
-            if not run.finished_at:
-                run.finished_at = datetime.utcnow()
-            self._set_progress(
-                run,
-                stage='canceled',
-                message='任务已取消',
-                commit=True,
-            )
-            logger.info(f'分析任务 {run_id} 已取消，跳过执行')
+        if run.status != 'pending':
+            if run.status == 'canceled':
+                self._mark_run_canceled(run_id)
+            logger.info(f'分析任务 {run_id} 状态为 {run.status}，跳过重复执行')
             return
 
-        if run.status not in {'pending', 'running'}:
-            raise ValueError(f'分析任务 {run_id} 状态为 {run.status}，不允许重复执行')
+        if not self._claim_pending_run(run_id):
+            return
 
         try:
-            # 更新状态
-            run.status = 'running'
-            run.started_at = run.started_at or datetime.utcnow()
-            run.error_message = None
-            self._set_progress(
-                run,
-                stage='starting',
-                message='正在初始化分析任务',
-                commit=False,
-            )
-            db.session.commit()
+            run = self._get_run(run_id, refresh=True)
+            if not run:
+                raise ValueError(f'分析任务 {run_id} 不存在')
 
             logger.info(f'开始分析任务 {run_id}')
 
@@ -124,7 +110,7 @@ class AnalysisService:
             self._raise_if_canceled(run_id)
 
             # 更新状态
-            run = AnalysisRun.query.get(run_id)
+            run = self._get_run(run_id, refresh=True)
             if not run:
                 raise ValueError(f'分析任务 {run_id} 不存在')
 
@@ -147,7 +133,7 @@ class AnalysisService:
 
         except Exception as e:
             logger.error(f'分析任务 {run_id} 失败: {str(e)}')
-            run = AnalysisRun.query.get(run_id)
+            run = self._get_run(run_id, refresh=True)
             if run and run.status == 'canceled':
                 if not run.finished_at:
                     run.finished_at = datetime.utcnow()
@@ -174,6 +160,34 @@ class AnalysisService:
                 db.session.commit()
             raise
 
+    def _get_run(self, run_id: int, refresh: bool = False):
+        return db.session.get(AnalysisRun, int(run_id), populate_existing=refresh)
+
+    def _claim_pending_run(self, run_id: int) -> bool:
+        now = datetime.utcnow()
+        updated_count = AnalysisRun.query.filter_by(
+            id=run_id,
+            status='pending',
+        ).update({
+            'status': 'running',
+            'started_at': now,
+            'error_message': None,
+            'progress_stage': 'starting',
+            'progress_message': '正在初始化分析任务',
+            'progress_updated_at': now,
+        }, synchronize_session=False)
+        db.session.commit()
+
+        if updated_count:
+            return True
+
+        run = self._get_run(run_id, refresh=True)
+        if run and run.status == 'canceled':
+            self._mark_run_canceled(run_id)
+        if run:
+            logger.info(f'分析任务 {run_id} 状态为 {run.status}，未领取执行')
+        return False
+
     def _set_progress(self, run: AnalysisRun, stage: str, message: str, commit: bool = False):
         run.progress_stage = stage
         run.progress_message = message
@@ -182,14 +196,14 @@ class AnalysisService:
             db.session.commit()
 
     def _set_progress_by_id(self, run_id: int, stage: str, message: str):
-        run = AnalysisRun.query.get(run_id)
+        run = self._get_run(run_id, refresh=True)
         if not run:
             return
         self._set_progress(run, stage=stage, message=message, commit=False)
         db.session.commit()
 
     def _raise_if_canceled(self, run_id: int):
-        run = AnalysisRun.query.get(run_id)
+        run = self._get_run(run_id, refresh=True)
         if not run:
             raise ValueError(f'分析任务 {run_id} 不存在')
         if run.status == 'canceled':
@@ -197,7 +211,7 @@ class AnalysisService:
         return run
 
     def _mark_run_canceled(self, run_id: int):
-        run = AnalysisRun.query.get(run_id)
+        run = self._get_run(run_id, refresh=True)
         if not run:
             return
         run.status = 'canceled'

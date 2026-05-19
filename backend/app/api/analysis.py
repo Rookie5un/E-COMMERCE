@@ -1,5 +1,4 @@
 from datetime import datetime
-import threading
 
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -8,6 +7,8 @@ from sqlalchemy import func, desc
 from app import db
 from app.models import Product, ReviewBatch, Review
 from app.models.analysis import AnalysisRun, ReviewSentiment, AspectMention, IssueTopic
+from app.api.permissions import admin_required, get_current_user
+from app.services.analysis_dispatcher import AnalysisDispatchError, dispatch_analysis_run
 from app.services.summary_utils import build_sentiment_distribution
 
 bp = Blueprint('analysis', __name__)
@@ -25,30 +26,6 @@ def _parse_current_user_id():
         return None
 
 
-def _start_analysis_thread(run_id: int):
-    """启动后台线程执行分析（生产环境建议使用Celery）"""
-    if current_app.config.get('TESTING'):
-        return
-
-    def run_analysis_task(target_run_id: int):
-        from app import create_app
-
-        app = create_app()
-        with app.app_context():
-            try:
-                # 延迟导入，避免在未安装可选 NLP 依赖时阻塞服务启动
-                from app.services.analysis_service import AnalysisService
-
-                service = AnalysisService()
-                service.run_analysis(target_run_id)
-            except Exception as e:
-                print(f'分析任务失败: {str(e)}')
-
-    thread = threading.Thread(target=run_analysis_task, args=(run_id,))
-    thread.daemon = True
-    thread.start()
-
-
 def _ensure_run_id_for_testing(run: AnalysisRun):
     """SQLite 测试环境下，BigInteger 主键不会自动递增，需手动赋值。"""
     if not current_app.config.get('TESTING'):
@@ -64,6 +41,7 @@ def _ensure_run_id_for_testing(run: AnalysisRun):
 
 @bp.route('/run', methods=['POST'])
 @jwt_required()
+@admin_required
 def create_analysis_run():
     """创建分析任务"""
     current_user_id = _parse_current_user_id()
@@ -126,7 +104,15 @@ def create_analysis_run():
     db.session.add(run)
     db.session.commit()
 
-    _start_analysis_thread(run.id)
+    try:
+        dispatch_analysis_run(run.id)
+    except AnalysisDispatchError as exc:
+        db.session.refresh(run)
+        return jsonify({
+            'error': '分析任务投递失败',
+            'detail': str(exc),
+            'run': run.to_dict(),
+        }), 503
 
     return jsonify({
         'message': '分析任务已创建并开始执行',
@@ -136,6 +122,7 @@ def create_analysis_run():
 
 @bp.route('/runs', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_analysis_runs():
     """获取分析任务列表"""
     product_id = request.args.get('product_id', type=int)
@@ -167,6 +154,7 @@ def get_analysis_runs():
 
 @bp.route('/runs/<int:run_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_analysis_run(run_id):
     """获取分析任务详情"""
     run = AnalysisRun.query.get(run_id)
@@ -178,6 +166,7 @@ def get_analysis_run(run_id):
 
 @bp.route('/runs/<int:run_id>/cancel', methods=['POST'])
 @jwt_required()
+@admin_required
 def cancel_analysis_run(run_id):
     """取消分析任务"""
     run = AnalysisRun.query.get(run_id)
@@ -203,6 +192,7 @@ def cancel_analysis_run(run_id):
 
 @bp.route('/runs/<int:run_id>/retry', methods=['POST'])
 @jwt_required()
+@admin_required
 def retry_analysis_run(run_id):
     """重试分析任务"""
     current_user_id = _parse_current_user_id()
@@ -238,7 +228,16 @@ def retry_analysis_run(run_id):
     db.session.add(retry_run)
     db.session.commit()
 
-    _start_analysis_thread(retry_run.id)
+    try:
+        dispatch_analysis_run(retry_run.id)
+    except AnalysisDispatchError as exc:
+        db.session.refresh(retry_run)
+        return jsonify({
+            'error': '分析任务投递失败',
+            'detail': str(exc),
+            'source_run_id': run.id,
+            'run': retry_run.to_dict(),
+        }), 503
 
     return jsonify({
         'message': '重试任务已创建并开始执行',
@@ -251,6 +250,10 @@ def retry_analysis_run(run_id):
 @jwt_required()
 def get_analysis_summary():
     """获取分析总览"""
+    current_user = get_current_user()
+    if current_user is None:
+        return jsonify({'error': '无效的身份令牌'}), 401
+
     product_id = request.args.get('product_id', type=int)
     run_id = request.args.get('run_id', type=int)
 
@@ -267,6 +270,14 @@ def get_analysis_summary():
         if not run:
             return jsonify({'error': '该商品暂无完成的分析任务'}), 404
         run_id = run.id
+    else:
+        run = AnalysisRun.query.get(run_id)
+        if not run:
+            return jsonify({'error': '分析任务不存在'}), 404
+        if product_id and run.product_id != product_id:
+            return jsonify({'error': '分析任务不属于当前商品'}), 400
+        if current_user.role != 'admin' and run.status != 'completed':
+            return jsonify({'error': '分析员只能查看已完成的分析结果'}), 403
 
     # 统计情感分布
     sentiment_stats = db.session.query(
@@ -304,6 +315,7 @@ def get_analysis_summary():
 
 @bp.route('/sentiment', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_sentiment_analysis():
     """获取情感分析结果"""
     run_id = request.args.get('run_id', type=int)
@@ -328,6 +340,7 @@ def get_sentiment_analysis():
 
 @bp.route('/aspects', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_aspect_analysis():
     """获取功能点分析结果"""
     run_id = request.args.get('run_id', type=int)
@@ -350,6 +363,7 @@ def get_aspect_analysis():
 
 @bp.route('/issues', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_issue_analysis():
     """获取负面问题分析结果"""
     run_id = request.args.get('run_id', type=int)
